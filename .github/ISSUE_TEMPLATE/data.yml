@@ -1,0 +1,43 @@
+name: Data curation issue
+description: Report a problem with the data
+title: "[Data]: "
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to let us know about a data issue!
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue
+      description: What kind of data issue is this?
+      options:
+        - A network is misnamed
+        - A network isn't being grouped
+        - A network is grouped incorrectly
+    validations:
+      required: true
+  - type: input
+    id: network
+    attributes:
+      label: AS Number
+      description: Which ASN is the problem?
+      placeholder: AS2037
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: How do we fix it?
+      description: How should this network be named or grouped?
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
