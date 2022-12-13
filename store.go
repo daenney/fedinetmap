@@ -166,6 +166,7 @@ var asnToKey = map[uint]string{
 	3301:   "Telia",
 	34610:  "Telia",
 	39642:  "Telia",
+	8764:   "Telia",
 	5378:   "Vodafone",
 	1273:   "Vodafone",
 	15502:  "Vodafone",
