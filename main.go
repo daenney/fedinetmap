@@ -8,35 +8,23 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sort"
-	"time"
 
+	"github.com/d3mondev/resolvermt"
 	"github.com/oschwald/maxminddb-golang"
 	"golang.org/x/exp/slices"
 )
 
 const (
-	endpoint = "https://instances.social/api/1.0/instances/list?count=0&include_down=false"
+	endpoint = "https://instances.social/api/1.0/instances/list?count=%d&include_down=false"
 )
-
-type ASMap map[string]ASEntry
-
-type ASEntry struct {
-	Name      string `json:"name"`
-	Count     uint   `json:"count"`
-	ASNumbers []uint `json:"asNumbers"`
-}
-
-type ASEntryList []ASEntry
-
-func (a ASEntryList) Len() int           { return len(a) }
-func (a ASEntryList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ASEntryList) Less(i, j int) bool { return a[i].Count < a[j].Count }
 
 func main() {
 	dbPath := flag.String("db.path", "", "Path to the a MaxMind database with ASN info")
+	numInstances := flag.Uint("instances", 10, "amount of instances to fetch")
 	flag.Parse()
 
 	if *dbPath == "" {
@@ -57,87 +45,126 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer stop()
 
-	d, err := fetchInstances(ctx, http.DefaultClient, token)
+	d, err := fetchInstances(ctx, http.DefaultClient, token, *numInstances)
 	if err != nil {
 		panic(err)
 	}
 
-	all := ASMap{}
+	client := resolvermt.New([]string{
+		"1.0.0.1",         // Cloudflare
+		"1.1.1.1",         // Cloudflare
+		"8.8.8.8",         // Google
+		"8.8.4.4",         // Google
+		"9.9.9.10",        // Quad9
+		"149.112.112.112", // Quad9
+		"76.76.2.0",       // Control D
+		"76.76.10.0",      // Control D
+	}, 3, 10, 5)
 
-	resolver := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{
-				Timeout: time.Duration(5000) * time.Millisecond,
-			}
-			return d.DialContext(ctx, "udp", "1.1.1.1:53")
-		},
-	}
-
-	for i, ins := range d.Instances {
-		res, err := nameToIP(ctx, ins.Name, resolver)
-		if err != nil || res == "" {
-			fmt.Fprintf(os.Stderr, "skipping: %s, resolution failed\n", ins.Name)
+	instances := make([]string, 0, len(d.Instances))
+	for _, ins := range d.Instances {
+		// some instances in the DB are malformed, they have a port of even a path
+		// attached to them which we try to fix by round-tripping through url.Parse
+		u, err := url.Parse("https://" + ins.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "skipping instance: %s, could not parse: %v\n", ins.Name, err)
 			continue
 		}
+		instances = append(instances, u.Hostname())
+	}
+
+	ips := make([]net.IP, 0, len(instances))
+	hasv4 := []string{}
+	fmt.Fprintf(os.Stderr, "resolving %d instances for IPv4\n", len(instances))
+	resultsv4 := client.Resolve(instances, resolvermt.TypeA)
+	fmt.Fprintf(os.Stderr, "finished resolving %d instances for IPv4\n", len(instances))
+	prevDomain := ""
+	for _, res := range resultsv4 {
+		if res.Type != resolvermt.TypeA {
+			continue
+		}
+		if prevDomain == res.Question {
+			continue
+		}
+		ip := net.ParseIP(res.Answer)
+		if !ip.IsGlobalUnicast() {
+			fmt.Fprintf(os.Stderr, "got non-unicast IP: %s for: %s\n", ip.String(), res.Question)
+			continue
+		}
+		ips = append(ips, ip)
+		hasv4 = append(hasv4, res.Question)
+		prevDomain = res.Question
+	}
+
+	fmt.Fprintf(os.Stderr, "got %d valid IPs\n", len(ips))
+
+	// assume we've found some IPv6 only instance
+	// this may be incorrect if something repeatedly failed to resolve over v4
+	// but it's probably a tiny fraction anyway that this doesn't matter
+	if len(instances) != len(hasv4) {
+		slices.Sort(instances)
+		slices.Sort(hasv4)
+
+		v6instances := []string{}
+		for _, ins := range instances {
+			if _, ok := slices.BinarySearch(hasv4, ins); !ok {
+				v6instances = append(v6instances, ins)
+			}
+		}
+
+		fmt.Fprintf(os.Stderr, "resolving %d instances for IPv6\n", len(v6instances))
+		resultsv6 := client.Resolve(v6instances, resolvermt.TypeAAAA)
+		fmt.Fprintf(os.Stderr, "finished resolving %d instances for IPv6\n", len(v6instances))
+		prevDomain = ""
+		for _, res := range resultsv6 {
+			if res.Type != resolvermt.TypeAAAA {
+				continue
+			}
+			if prevDomain == res.Question {
+				continue
+			}
+			ip := net.ParseIP(res.Answer)
+			if !ip.IsGlobalUnicast() {
+				fmt.Fprintf(os.Stderr, "got non-unicast IP: %s for: %s\n", ip.String(), res.Question)
+				continue
+			}
+			ips = append(ips, ip)
+			prevDomain = res.Question
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "resolved a total of %d instacnes from original set of %d\n", len(ips), len(instances))
+
+	st := NewStore()
+
+	for _, ip := range ips {
 		var r Record
-		if err := db.Lookup(net.ParseIP(res), &r); err != nil {
-			fmt.Fprintf(os.Stderr, "skipping: %s, IP: %s not found in MaxMind DB\n", ins.Name, res)
+		if err := db.Lookup(ip, &r); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to lookup entry in MaxMind DB: %v\n", err)
 			continue
 		}
-
-		val, ok := all[r.ASName]
-		if !ok {
-			all[r.ASName] = ASEntry{
-				Name:      r.ASName,
-				ASNumbers: []uint{r.ASNumber},
-				Count:     1,
-			}
+		if r.Number != 0 {
+			st.Upsert(r)
 		} else {
-			val.Count++
-			if !slices.Contains(val.ASNumbers, r.ASNumber) {
-				val.ASNumbers = append(val.ASNumbers, r.ASNumber)
-			}
-			all[r.ASName] = val
-		}
-		if i != 0 && i%10 == 0 {
-			time.Sleep(5 * time.Second)
+			fmt.Fprintf(os.Stderr, "skipping IP: %s not found in MaxMind DB\n", ip.String())
 		}
 	}
 
-	alist := make(ASEntryList, 0, len(all))
-
-	for _, a := range all {
-		alist = append(alist, a)
-	}
-	sort.Stable(sort.Reverse(alist))
+	all := st.AsList()
+	sort.Stable(sort.Reverse(all))
 
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "    ")
-	j.Encode(alist)
+	j.Encode(all)
 }
 
-func nameToIP(ctx context.Context, name string, resolver *net.Resolver) (string, error) {
-	res, err := resolver.LookupIPAddr(ctx, name)
-	if err != nil {
-		return "", err
-	}
-	for _, r := range res {
-		if !r.IP.IsGlobalUnicast() {
-			continue
-		}
-		return r.String(), nil
-	}
-	return "", nil
-}
-
-func fetchInstances(ctx context.Context, cl *http.Client, token string) (*Data, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+func fetchInstances(ctx context.Context, cl *http.Client, token string, instances uint) (*Data, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(endpoint, instances), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	req.Header.Set("User-Agent", "fedimap (+https://code.dny.dev/fedinetmap)")
+	req.Header.Set("User-Agent", "fedinetmap (+https://code.dny.dev/fedinetmap)")
 
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -163,10 +190,7 @@ type Data struct {
 		Name string `json:"name"`
 	} `json:"instances"`
 }
-
-type Instances []string
-
 type Record struct {
-	ASNumber uint   `maxminddb:"autonomous_system_number"`
-	ASName   string `maxminddb:"autonomous_system_organization"`
+	Number uint   `maxminddb:"autonomous_system_number"`
+	Name   string `maxminddb:"autonomous_system_organization"`
 }
