@@ -151,6 +151,7 @@ var asnToKey = map[uint]string{
 	21499:  "GoDaddy",
 	34011:  "GoDaddy",
 	398101: "GoDaddy",
+	30083:  "GoDaddy",
 	20857:  "TransIP",
 	35470:  "TransIP",
 	57370:  "Swisscom",
@@ -176,6 +177,7 @@ var asnToKey = map[uint]string{
 	16019:  "Vodafone",
 	30722:  "Vodafone",
 	12353:  "Vodafone",
+	20963:  "Vodafone",
 	12430:  "Vodafone",
 	6739:   "Vodafone",
 	60781:  "LeaseWeb",
@@ -213,6 +215,7 @@ var asnToKey = map[uint]string{
 	12479:  "Orange",
 	47377:  "Orange",
 	5617:   "Orange",
+	48173:  "Orange",
 	10796:  "Charter",
 	11426:  "Charter",
 	11427:  "Charter",
@@ -221,6 +224,7 @@ var asnToKey = map[uint]string{
 	11351:  "Charter",
 	20115:  "Charter",
 	12271:  "Charter",
+	33588:  "Charter",
 	204548: "Kamatera",
 	210329: "Kamatera",
 	41436:  "Kamatera",
@@ -228,8 +232,11 @@ var asnToKey = map[uint]string{
 	54858:  "Astound",
 	29962:  "Astound",
 	11404:  "Astound",
+	6079:   "Astound",
 	7922:   "Comcast",
 	13367:  "Comcast",
+	4213:   "Evocative",
+	393398: "Evocative",
 }
 
 var asnToName = map[uint]string{
@@ -260,6 +267,13 @@ var asnToName = map[uint]string{
 	62904:  "ServerHub",
 	20454:  "SecuredServers",
 	131:    "University of California, Santa Barbara",
+	132420: "E2E Networks",
+	31863:  "Centrilogic, Inc.",
+	6597:   "Coloblox Data Centers Inc",
+	393398: "Evocative Global",
+	6200:   "University of Illinois at Chicago",
+	20963:  "nema",
+	206170: "Inleed",
 }
 
 func KeyForASN(rec Record) string {
