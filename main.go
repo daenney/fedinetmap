@@ -73,7 +73,7 @@ func main() {
 		instances = append(instances, u.Hostname())
 	}
 
-	ips := make([]net.IP, 0, len(instances))
+	ips := make(map[string]net.IP, len(instances))
 	hasv4 := []string{}
 	fmt.Fprintf(os.Stderr, "resolving %d instances for IPv4\n", len(instances))
 	resultsv4 := client.Resolve(instances, resolvermt.TypeA)
@@ -91,7 +91,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "got non-unicast IP: %s for: %s\n", ip.String(), res.Question)
 			continue
 		}
-		ips = append(ips, ip)
+		ips[res.Question] = ip
 		hasv4 = append(hasv4, res.Question)
 		prevDomain = res.Question
 	}
@@ -128,7 +128,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "got non-unicast IP: %s for: %s\n", ip.String(), res.Question)
 				continue
 			}
-			ips = append(ips, ip)
+			ips[res.Question] = ip
 			prevDomain = res.Question
 		}
 	}
@@ -137,7 +137,7 @@ func main() {
 
 	st := NewStore()
 
-	for _, ip := range ips {
+	for name, ip := range ips {
 		var r Record
 		if err := db.Lookup(ip, &r); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to lookup entry in MaxMind DB: %v\n", err)
@@ -146,7 +146,7 @@ func main() {
 		if r.Number != 0 {
 			st.Upsert(r)
 		} else {
-			fmt.Fprintf(os.Stderr, "skipping IP: %s not found in MaxMind DB\n", ip.String())
+			fmt.Fprintf(os.Stderr, "skipping instance %s with IP: %s not found in MaxMind DB\n", name, ip.String())
 		}
 	}
 
