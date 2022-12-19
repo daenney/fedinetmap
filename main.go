@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 
 	"github.com/d3mondev/resolvermt"
 	"github.com/oschwald/maxminddb-golang"
@@ -174,6 +175,12 @@ func fetchInstances(ctx context.Context, cl *http.Client, token string, instance
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		buf := new(strings.Builder)
+		io.Copy(buf, io.LimitReader(resp.Body, 200))
+		return nil, fmt.Errorf("non-200 status code: %d: %s", resp.StatusCode, buf.String())
+	}
 
 	var d Data
 	j := json.NewDecoder(resp.Body)
