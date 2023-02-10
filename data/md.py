@@ -11,6 +11,18 @@ def endUserEmoji(val):
 
 f = open('networks.json')
 data = json.load(f)
+print("""# Instances
+
+The `networks.json` contains the result of running fedinetmap.
+ 
+* Due to so many instances using Cloudflare, we don't actually know who is
+  hosting a lot of these
+* The "End User" column indicates that the network is likely used to deliver
+  broadband services to consumers and businesses (so not a datacenter)
+
+This list includes GeoLite2 data created by MaxMind, available from
+https://www.maxmind.com.
+""")
 print("| Name | Instances | AS Number | End user |")
 print("| --- | --- | --- | --- |")
 previous_had_children = False
