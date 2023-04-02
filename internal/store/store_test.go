@@ -1,11 +1,15 @@
-package main
+package store
 
-import "testing"
+import (
+	"testing"
+
+	"code.dny.dev/fedinetmap/internal/maxmind"
+)
 
 func TestStoreSingle(t *testing.T) {
-	s := NewStore()
+	s := New(1)
 
-	s.Upsert(Record{Number: 5, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -19,9 +23,9 @@ func TestStoreSingle(t *testing.T) {
 }
 
 func TestStoreSingleIncrement(t *testing.T) {
-	s := NewStore()
+	s := New(2)
 
-	s.Upsert(Record{Number: 5, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -35,7 +39,7 @@ func TestStoreSingleIncrement(t *testing.T) {
 	if v.Count != 1 {
 		t.Fatal()
 	}
-	s.Upsert(Record{Number: 5, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -52,9 +56,9 @@ func TestStoreSingleIncrement(t *testing.T) {
 }
 
 func TestStoreMigrateGroup(t *testing.T) {
-	s := NewStore()
+	s := New(3)
 
-	s.Upsert(Record{Number: 5, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -65,8 +69,8 @@ func TestStoreMigrateGroup(t *testing.T) {
 	if v.Name != "Test" {
 		t.Fatal()
 	}
-	s.Upsert(Record{Number: 7, Name: "Test"})
-	s.Upsert(Record{Number: 7, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 7, Name: "Test"})
+	s.Upsert(maxmind.Entry{Number: 7, Name: "Test"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -108,9 +112,9 @@ func TestStoreMigrateGroup(t *testing.T) {
 }
 
 func TestStorePredefinedGroup(t *testing.T) {
-	s := NewStore()
+	s := New(2)
 
-	s.Upsert(Record{Number: 24940, Name: "Hetzner Online GmbH"})
+	s.Upsert(maxmind.Entry{Number: 24940, Name: "Hetzner Online GmbH"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -121,7 +125,7 @@ func TestStorePredefinedGroup(t *testing.T) {
 	if v.Name != "Hetzner Online GmbH" {
 		t.Fatal()
 	}
-	s.Upsert(Record{Number: 213230, Name: "Hetzner Online GmbH"})
+	s.Upsert(maxmind.Entry{Number: 213230, Name: "Hetzner Online GmbH"})
 	if len(s.asmap) != 1 {
 		t.Fatal()
 	}
@@ -164,10 +168,10 @@ func TestStorePredefinedGroup(t *testing.T) {
 }
 
 func TestStoreAsList(t *testing.T) {
-	s := NewStore()
-	s.Upsert(Record{Number: 24940, Name: "Hetzner Online GmbH"})
-	s.Upsert(Record{Number: 213230, Name: "Hetzner Online GmbH"})
-	s.Upsert(Record{Number: 5, Name: "Test"})
+	s := New(3)
+	s.Upsert(maxmind.Entry{Number: 24940, Name: "Hetzner Online GmbH"})
+	s.Upsert(maxmind.Entry{Number: 213230, Name: "Hetzner Online GmbH"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 
 	l := s.AsList()
 	if len(l) != 2 {

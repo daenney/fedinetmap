@@ -1,9 +1,11 @@
-package main
+package store
 
 import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"code.dny.dev/fedinetmap/internal/maxmind"
 )
 
 type Entry struct {
@@ -35,7 +37,7 @@ func (s *Store) AsList() Entries {
 	return res
 }
 
-func (s *Store) Upsert(rec Record) {
+func (s *Store) Upsert(rec maxmind.Entry) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -61,7 +63,7 @@ func (s *Store) update(asn string) {
 	s.asmap[asn].Count++
 }
 
-func (s *Store) create(key string, rec Record) {
+func (s *Store) create(key string, rec maxmind.Entry) {
 	s.asmap[key] = &Entry{
 		Name:    NameForASN(rec),
 		ASN:     rec.Number,
@@ -70,7 +72,7 @@ func (s *Store) create(key string, rec Record) {
 	}
 }
 
-func (s *Store) migrateToGroup(key, name string, rec Record) {
+func (s *Store) migrateToGroup(key, name string, rec maxmind.Entry) {
 	val := s.asmap[key]
 
 	s.asmap[key] = &Entry{
@@ -82,7 +84,7 @@ func (s *Store) migrateToGroup(key, name string, rec Record) {
 	}
 }
 
-func (s *Store) updateGroup(key string, rec Record) {
+func (s *Store) updateGroup(key string, rec maxmind.Entry) {
 	parent := s.asmap[key]
 
 	if ch, ok := parent.Children[rec.Number]; ok {
@@ -100,9 +102,9 @@ func (s *Store) updateGroup(key string, rec Record) {
 	parent.Count++
 }
 
-func NewStore() *Store {
+func New(size int) *Store {
 	return &Store{
-		asmap: make(map[string]*Entry),
+		asmap: make(map[string]*Entry, size),
 	}
 }
 
@@ -276,14 +278,14 @@ var asnToName = map[uint]string{
 	206170: "Inleed",
 }
 
-func KeyForASN(rec Record) string {
+func KeyForASN(rec maxmind.Entry) string {
 	if val, ok := asnToKey[rec.Number]; ok {
 		return val
 	}
 	return rec.Name
 }
 
-func NameForASN(rec Record) string {
+func NameForASN(rec maxmind.Entry) string {
 	if val, ok := asnToName[rec.Number]; ok {
 		return fmt.Sprintf("%s (%s)", val, rec.Name)
 	}
