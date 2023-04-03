@@ -19,6 +19,7 @@ import (
 func main() {
 	dbPath := flag.String("db.path", "", "Path to the a MaxMind database with ASN info")
 	numInstances := flag.Uint("instances", 10, "amount of instances to fetch")
+	minInstances := flag.Uint("min-instances", 5, "lower threshold to be included in the output")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
@@ -57,7 +58,7 @@ func main() {
 	fmt.Fprintf(os.Stderr, "attempting to resolve %d instances\n", len(instances))
 	ips := dns.ResolveInstances(instances)
 	fmt.Fprintf(os.Stderr, "resolved a total of %d instacnes from original set of %d\n", len(ips), len(instances))
-	st := store.New(len(ips))
+	st := store.New(len(ips), int(*minInstances))
 
 	for name, ip := range ips {
 		e, err := db.Lookup(ip)

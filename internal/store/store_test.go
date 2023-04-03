@@ -7,7 +7,7 @@ import (
 )
 
 func TestStoreSingle(t *testing.T) {
-	s := New(1)
+	s := New(1, 10)
 
 	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
@@ -23,7 +23,7 @@ func TestStoreSingle(t *testing.T) {
 }
 
 func TestStoreSingleIncrement(t *testing.T) {
-	s := New(2)
+	s := New(2, 10)
 
 	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
@@ -56,7 +56,7 @@ func TestStoreSingleIncrement(t *testing.T) {
 }
 
 func TestStoreMigrateGroup(t *testing.T) {
-	s := New(3)
+	s := New(3, 10)
 
 	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
 	if len(s.asmap) != 1 {
@@ -112,7 +112,7 @@ func TestStoreMigrateGroup(t *testing.T) {
 }
 
 func TestStorePredefinedGroup(t *testing.T) {
-	s := New(2)
+	s := New(2, 10)
 
 	s.Upsert(maxmind.Entry{Number: 24940, Name: "Hetzner Online GmbH"})
 	if len(s.asmap) != 1 {
@@ -168,7 +168,7 @@ func TestStorePredefinedGroup(t *testing.T) {
 }
 
 func TestStoreAsList(t *testing.T) {
-	s := New(3)
+	s := New(3, 10)
 	s.Upsert(maxmind.Entry{Number: 24940, Name: "Hetzner Online GmbH"})
 	s.Upsert(maxmind.Entry{Number: 213230, Name: "Hetzner Online GmbH"})
 	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
@@ -195,6 +195,30 @@ func TestStoreAsList(t *testing.T) {
 		t.Fatal()
 	}
 	if elem2.Children != nil {
+		t.Fatal()
+	}
+}
+
+func TestStoreAsListWithRedaction(t *testing.T) {
+	s := New(7, 5)
+	for i := 0; i < 5; i++ {
+		s.Upsert(maxmind.Entry{Number: 24940, Name: "Hetzner Online GmbH"})
+	}
+	s.Upsert(maxmind.Entry{Number: 213230, Name: "Hetzner Online GmbH"})
+	s.Upsert(maxmind.Entry{Number: 5, Name: "Test"})
+
+	l := s.AsList()
+	if len(l) != 1 {
+		t.Fatal(l)
+	}
+	elem1 := l[0]
+	if elem1.ASN != 0 {
+		t.Fatal()
+	}
+	if elem1.Name != "Hetzner" {
+		t.Fatal()
+	}
+	if len(elem1.Children) != 2 {
 		t.Fatal()
 	}
 }

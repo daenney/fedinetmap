@@ -23,7 +23,8 @@ func (e Entries) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 func (e Entries) Less(i, j int) bool { return e[i].Count < e[j].Count }
 
 type Store struct {
-	asmap map[string]*Entry
+	asmap       map[string]*Entry
+	redactCount int
 	sync.Mutex
 }
 
@@ -32,7 +33,9 @@ func (s *Store) AsList() Entries {
 	defer s.Unlock()
 	res := make(Entries, 0, len(s.asmap))
 	for _, ent := range s.asmap {
-		res = append(res, *ent)
+		if ent.Count >= uint(s.redactCount) {
+			res = append(res, *ent)
+		}
 	}
 	return res
 }
@@ -102,9 +105,10 @@ func (s *Store) updateGroup(key string, rec maxmind.Entry) {
 	parent.Count++
 }
 
-func New(size int) *Store {
+func New(size int, redact int) *Store {
 	return &Store{
-		asmap: make(map[string]*Entry, size),
+		asmap:       make(map[string]*Entry, size),
+		redactCount: redact,
 	}
 }
 
