@@ -8,8 +8,9 @@ This uses the ActivityPub instances list at [instances.social][ins] to map the
 instance to an Autonomous Network (an ISP). It makes an attempt to group and
 dedup networks but the data available on this is a nightmare of a mess.
 
-We only consider instances that aren't marked as "DOWN" in the instances.social
-API.
+By default we omit any network or network group that hosts less than 5 instances.
+The aim of publishing this set is it roughly understand where the fediverse is
+hosted and for that purpose this is good enough.
 
 ## Usage
 
@@ -25,12 +26,13 @@ Usage of ./fedinetmap:
     	Path to the a MaxMind database with ASN info
   -instances uint
     	amount of instances to fetch (default 10)
-
+  -min-instances uint
+    	lower threshold to be included in the output (default 5)
 ```
 
 ## Building
 
-You'll need Go 1.19. `go build` will do the rest.
+You'll need Go 1.20. `go build` will do the rest.
 
 ## Testing
 
